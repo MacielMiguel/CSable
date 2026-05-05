@@ -52,3 +52,4 @@ classdef OpenLoopControl < core.AbstractController
         end
     end
 end
+%test
