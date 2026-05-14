@@ -14,8 +14,8 @@ function params = robot_params()
     params.hw.PROTOCOL_VERSION = 1.0;   % Protocol 1.0 or 2.0
     params.hw.BAUDRATE = 1000000;       
 
-    % Dimentions definitions
-    params.dm.L1 = 0.04;
-    params.dm.L2 = 0.10;
-    params.dm.L3 = 0.10;
+    % Dimentions definitions (mm)
+    % params.dm.L1 = 40;
+    params.dm.L2 = 100;
+    params.dm.L3 = 100;
 end
