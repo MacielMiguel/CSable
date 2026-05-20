@@ -22,7 +22,7 @@ classdef OpenLoopControl < core.AbstractController
             obj.MaxDeltaAngle = max_speed_rad_per_sec * Ts; 
         end
         
-        function action = computeAction(obj, state, ref)
+       function action = computeAction(obj, ~, ref)
             % ref: [X; Z] or [X; Y; Z] target position of the foot in space
             % state: current state (positions and velocities)
             
