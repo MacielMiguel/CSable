@@ -1,9 +1,10 @@
-function pos = forward_kinematics(q, params)
-    % FORWARD_KINEMATICS Computes the forward kinematics of a leg
-    % Inputs:
-    %   q - Joint angles
-    %   params - Robot parameters
+function pos = forward_kinematics(angles, params)
+    theta1 = angles(1);
+    theta2 = angles(2);
+    L1 = params.L1;
+    L2 = params.L2;
     
-    % TODO: Implement kinematics equations
-    pos = [0; 0; 0]; 
+    x = L1 * cos(theta1) + L2 * cos(theta1 + theta2);
+    z = L1 * sin(theta1) + L2 * sin(theta1 + theta2);
+    pos = [x; z];
 end
