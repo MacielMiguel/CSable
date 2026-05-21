@@ -9,8 +9,8 @@ function [X, Y] = calc_workspace(dm_params, num_points)
     end
     
     % Definition of motor limits in radians
-    a_vec = linspace(deg2rad(95), deg2rad(180), num_points); % 95, 150
-    theta2_vec = linspace(deg2rad(110), deg2rad(180), num_points); % 100, 160
+    a_vec = linspace(deg2rad(95), deg2rad(175), num_points); % 95, 150
+    theta2_vec = linspace(deg2rad(90), deg2rad(180), num_points); % 100, 160
     
     % MEMORY PREALLOCATION FOR EFFICIENCY (O(N^2))
     total_points = num_points * num_points;

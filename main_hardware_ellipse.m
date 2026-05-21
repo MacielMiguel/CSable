@@ -1,43 +1,82 @@
 % main_hardware_ellipse.m
 % Real-time hardware execution of the OpenLoopControl tracking an ellipse.
+% Supports symmetrical configuration for Left and Right legs.
 
 clear; clc; close all;
 
-%% 1. Setup Parameters & Dimensions
+%% =========================================================
+%% 0. USER CONFIGURATION
+%% =========================================================
+% Choose which leg to control. 
+% Options: 'RIGHT' or 'LEFT'
+TARGET_LEG = 'LEFT'; 
+
+%% 1. Setup Kinematics Parameters & Dimensions
 Ts = 0.01;          % Sample time (100 Hz)
 T_end = 4;          % Execution duration (seconds)
 t = 0:Ts:T_end;     % Time vector
 
-% Robot Kinematics Parameters
+% Robot Kinematics Parameters (Strictly in millimeters)
 params = struct();
 params.dm.L2 = 100.00; % Thigh
 params.dm.L3 = 105.73; % Shin
 
-%% 2. Setup Hardware Parameters
-% UPDATE THESE SETTINGS TO MATCH YOUR PHYSICAL ROBOT
+%% 2. Setup Hardware Parameters based on Target Leg
 hw_params = struct();
-hw_params.DEVICENAME = 'COM5';          % Windows: 'COM3', Linux: '/dev/ttyUSB0', Mac: '/dev/tty.usb...'
-hw_params.BAUDRATE = 1000000;           % Default for X-Series is usually 1000000 or 57600
-hw_params.PROTOCOL_VERSION = 2.0;       % X-Series uses Protocol 2.0
-hw_params.DXL_IDS = [4, 3];             % [Thigh Motor ID, Crank Motor ID]
+hw_params.DEVICENAME = 'COM5';          % Check your COM port
+hw_params.BAUDRATE = 1000000;           % Default for X-Series
+hw_params.PROTOCOL_VERSION = 2.0;       % X-Series MUST use Protocol 2.0
 
-% HARDWARE OFFSETS [radians]
-% Offset = Physical Motor Angle - Mathematical Model Angle
-% From calibration: Motor 'a' (ID 3) has a +143 degree offset.
-offset_theta2 = deg2rad(0);   % Update this once you calibrate theta2
-offset_a      = deg2rad(-35); % The 35 deg difference you discovered
-
-hw_params.OFFSETS = [offset_theta2, offset_a];
+switch TARGET_LEG
+    case 'RIGHT'
+        disp('Configuring hardware for RIGHT leg...');
+        hw_params.DXL_IDS = [4, 3];     % [Thigh Motor ID, Crank Motor ID]
+        hw_params.DIRECTIONS = [1, 1];  % Standard rotation
+        
+        offset_theta2 = deg2rad(0);   
+        offset_a      = deg2rad(143); 
+        hw_params.OFFSETS = [offset_theta2, offset_a];
+        
+    case 'LEFT'
+        disp('Configuring hardware for LEFT leg...');
+        hw_params.DXL_IDS = [4, 3];     % UPDATE THESE IDs TO MATCH YOUR LEFT LEG MOTORS
+        hw_params.DIRECTIONS = [-1, -1]; % Inverted rotation for symmetry
+        
+        offset_theta2 = deg2rad(360); 
+        offset_a      = deg2rad(324); 
+        hw_params.OFFSETS = [offset_theta2, offset_a];
+        
+    otherwise
+        error('Invalid TARGET_LEG. Please select ''RIGHT'' or ''LEFT''.');
+end
 
 %% 3. Define the Safe 2D Ellipse Trajectory
+% Adjusted to comfortably fit inside the reachable workspace
 Xc = 40;     % Shifted forward
 Yc = -145;   % Shifted downward
 A = 20;      % Ellipse width semi-axis (mm)
-B = 10;      % Ellipse height semi-axis (mm)
+B = 15;      % Ellipse height semi-axis (mm)
 freq = 0.5;  % 0.5 Hz (1 cycle every 2 seconds)
 
 ref_x = Xc + A * cos(2 * pi * freq * t);
 ref_y = Yc + B * sin(2 * pi * freq * t);
+
+%% 3.5 Workspace and Trajectory Pre-Visualization
+disp('Calculating Workspace for safety verification...');
+% Uses a resolution of 60 (3600 points) for a good balance of speed and detail
+[~, ~] = kinematics.calc_workspace(params, 60); 
+
+% Grab the figure created by calc_workspace to add our trajectory
+fig_workspace = gcf;
+set(fig_workspace, 'Name', ['Workspace and Cartesian Path - ' TARGET_LEG ' Leg']);
+title(['Workspace and Physical Path - ' TARGET_LEG ' Leg']);
+hold on;
+
+% Plot the target trajectory
+plot(ref_x, ref_y, 'k--', 'LineWidth', 2, 'DisplayName', 'Target Path');
+plot(ref_x(1), ref_y(1), 'go', 'MarkerSize', 8, 'MarkerFaceColor', 'g', 'DisplayName', 'Start Point');
+legend('Location', 'best');
+drawnow; % Force MATLAB to render the window before moving the robot
 
 %% 4. Initialize Subsystems
 % 4a. Initialize Controller & Warm Start Check
@@ -67,7 +106,7 @@ action_log = zeros(2, N);
 actual_pos_log = zeros(2, N); 
 ref_pos_log = [ref_x; ref_y];   
 
-disp('Starting trajectory execution...');
+disp(['Starting trajectory execution for ' TARGET_LEG ' leg...']);
 
 %% 6. REAL-TIME HARDWARE CONTROL LOOP
 for i = 1:N
@@ -84,7 +123,6 @@ for i = 1:N
     hw_interface.writePosition(hw_params.DXL_IDS, action);
     
     % 4. Read Actual Hardware Position (for plotting errors)
-    % This adds slight delay but is highly valuable for debugging
     act_theta2 = hw_interface.readPosition(hw_params.DXL_IDS(1));
     act_a      = hw_interface.readPosition(hw_params.DXL_IDS(2));
     act_angles = [act_theta2; act_a];
@@ -98,11 +136,7 @@ for i = 1:N
     actual_pos_log(:, i) = actual_pos;
     
     % 6. Real-time pacing constraint
-    % Check how long computation and serial communication took
     elapsed_time = toc(loop_start);
-    
-    % If the loop finished faster than Ts (0.01s), pause for the remainder
-    % so we don't bombard the motors too fast and warp the time scale.
     if elapsed_time < Ts
         pause(Ts - elapsed_time);
     end
@@ -111,26 +145,23 @@ end
 disp('Trajectory complete. Cleaning up hardware...');
 
 %% 7. Safe Cleanup
-% The interface destructor handles torque disable and port closing
 hw_interface.cleanup();
 
 %% 8. Plot Final Hardware Tracking Errors
-% We plot this after the loop so the graphics rendering doesn't slow down the physical robot
 error_x = ref_pos_log(1, :) - actual_pos_log(1, :);
 error_y = ref_pos_log(2, :) - actual_pos_log(2, :);
 
-figure('Name', 'Hardware Tracking Errors', 'Color', 'w');
+% Plot the time-domain tracking errors
+figure('Name', ['Tracking Errors - ' TARGET_LEG ' Leg'], 'Color', 'w');
 subplot(2,1,1);
 plot(t, error_x, 'r', 'LineWidth', 1.5);
-grid on; title('Hardware Tracking Error: X-Axis'); ylabel('Error (mm)');
+grid on; title(['Hardware Tracking Error (X-Axis) - ' TARGET_LEG]); ylabel('Error (mm)');
 
 subplot(2,1,2);
 plot(t, error_y, 'b', 'LineWidth', 1.5);
-grid on; title('Hardware Tracking Error: Y-Axis'); ylabel('Error (mm)'); xlabel('Time (s)');
+grid on; title(['Hardware Tracking Error (Y-Axis) - ' TARGET_LEG]); ylabel('Error (mm)'); xlabel('Time (s)');
 
-% Plot the actual path taken vs target path
-figure('Name', 'Hardware Cartesian Path', 'Color', 'w');
-hold on; grid on; axis equal;
-plot(ref_x, ref_y, 'r--', 'LineWidth', 1.5, 'DisplayName', 'Target Path');
-plot(actual_pos_log(1,:), actual_pos_log(2,:), 'b-', 'LineWidth', 1.5, 'DisplayName', 'Actual Hardware Path');
-legend; title('Target vs Physical Path'); xlabel('X (mm)'); ylabel('Y (mm)');
+% Overlay the Actual Hardware Path on the previously generated Workspace plot
+figure(fig_workspace); 
+plot(actual_pos_log(1,:), actual_pos_log(2,:), 'r-', 'LineWidth', 1.5, 'DisplayName', 'Actual Hardware Path');
+legend('Location', 'best');

@@ -1,6 +1,7 @@
 classdef DynamixelInterface < handle
     % DYNAMIXELINTERFACE Class to interface with Dynamixel XM-Series motors
     % Wraps initialization, reading, writing, conversion, and cleanup.
+    % Now supports symmetrical mounting (Left/Right legs) via Directions array.
 
     properties
         PortNum
@@ -8,21 +9,20 @@ classdef DynamixelInterface < handle
         MotorIDs
         BaudRate
         DeviceName
-        Offsets
+        Offsets    % Array to store mounting offsets in radians
+        Directions % Array to store mounting directions (1 for normal, -1 for inverted)
     end
     
     properties (Constant)
         % XM430-W350 Control Table Addresses (X-Series)
         ADDR_TORQUE_ENABLE    = 64;  % 1 Byte
-        ADDR_PROFILE_VELOCITY = 112; % 4 Bytes (Controls movement speed)
+        ADDR_PROFILE_VELOCITY = 112; % 4 Bytes
         ADDR_GOAL_POSITION    = 116; % 4 Bytes
         ADDR_PRESENT_POSITION = 132; % 4 Bytes
         
         TORQUE_ENABLE  = 1;
         TORQUE_DISABLE = 0;
         
-        % Adjust library name based on OS: 
-        % Windows: 'dxl_x64_c' | Linux: 'libdxl_x64_c' | Mac: 'libdxl_mac_c'
         LIB_NAME = 'dxl_x64_c'; 
     end
     
@@ -34,11 +34,18 @@ classdef DynamixelInterface < handle
             obj.ProtocolVersion = hw_params.PROTOCOL_VERSION;
             obj.BaudRate = hw_params.BAUDRATE;
 
-            % Initialize Offsets (Default to 0 if not provided)
+            % Initialize Offsets
             if isfield(hw_params, 'OFFSETS')
                 obj.Offsets = hw_params.OFFSETS;
             else
                 obj.Offsets = zeros(1, length(obj.MotorIDs));
+            end
+            
+            % Initialize Directions (Default to 1 if not provided)
+            if isfield(hw_params, 'DIRECTIONS')
+                obj.Directions = hw_params.DIRECTIONS;
+            else
+                obj.Directions = ones(1, length(obj.MotorIDs));
             end
         end
         
@@ -82,7 +89,7 @@ classdef DynamixelInterface < handle
         end
         
         function pos_rad = readPosition(obj, motor_id)
-            % READPOSITION Reads hardware steps, applies offset, and returns pure Model Radians
+            % READPOSITION Reads hardware steps, applies offset/direction, returns pure Model Radians
             
             % Read 4-byte position from hardware and FORCE cast to double
             dxl_val = double(read4ByteTxRx(obj.PortNum, obj.ProtocolVersion, motor_id, obj.ADDR_PRESENT_POSITION));
@@ -90,13 +97,16 @@ classdef DynamixelInterface < handle
             % Find which index this motor corresponds to
             idx = find(obj.MotorIDs == motor_id, 1);
             
-            % Convert hardware steps to radians, then SUBTRACT the hardware offset
+            % Convert hardware steps to raw hardware radians
             raw_hardware_rad = utils.dxl2rad(dxl_val);
-            pos_rad = raw_hardware_rad - obj.Offsets(idx);
+            
+            % Reverse the transformation: Model = (Hardware - Offset) / Direction
+            % Note: Dividing by 1 or -1 is mathematically the same as multiplying by it.
+            pos_rad = (raw_hardware_rad - obj.Offsets(idx)) * obj.Directions(idx);
         end
         
         function writePosition(obj, motor_ids, pos_rads)
-            % WRITEPOSITION Accepts pure Model Radians, applies offset, and sends to motors.
+            % WRITEPOSITION Accepts pure Model Radians, applies direction/offset, sends to motors.
             
             for i = 1:length(motor_ids)
                 id = motor_ids(i);
@@ -110,10 +120,11 @@ classdef DynamixelInterface < handle
                     continue; 
                 end
                 
-                % ADD the hardware offset to match the physical mounting
-                hardware_target_rad = model_rad + obj.Offsets(idx);
+                % Transform Model angle to Physical angle: Hardware = (Model * Direction) + Offset
+                hardware_target_rad = (model_rad * obj.Directions(idx)) + obj.Offsets(idx);
                 
-                % Convert Radians to hardware steps using your utility
+                % Convert Radians to hardware steps
+                % Note: utils.rad2dxl MUST have the mod(rad, 2*pi) implemented as discussed previously
                 dxl_val = utils.rad2dxl(hardware_target_rad);
                 
                 % Write the 4-byte goal position to the hardware
