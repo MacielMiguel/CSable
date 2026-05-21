@@ -16,10 +16,10 @@ params.dm.L3 = 105.73; % Shin
 %% 2. Setup Hardware Parameters
 % UPDATE THESE SETTINGS TO MATCH YOUR PHYSICAL ROBOT
 hw_params = struct();
-hw_params.DEVICENAME = 'COM3';          % Windows: 'COM3', Linux: '/dev/ttyUSB0', Mac: '/dev/tty.usb...'
+hw_params.DEVICENAME = 'COM5';          % Windows: 'COM3', Linux: '/dev/ttyUSB0', Mac: '/dev/tty.usb...'
 hw_params.BAUDRATE = 1000000;           % Default for X-Series is usually 1000000 or 57600
 hw_params.PROTOCOL_VERSION = 2.0;       % X-Series uses Protocol 2.0
-hw_params.DXL_IDS = [1, 2];             % [Thigh Motor ID, Crank Motor ID]
+hw_params.DXL_IDS = [4, 3];             % [Thigh Motor ID, Crank Motor ID]
 
 %% 3. Define the Safe 2D Ellipse Trajectory
 Xc = 40;     % Shifted forward

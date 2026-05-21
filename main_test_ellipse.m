@@ -14,8 +14,8 @@ params.dm.L2 = 100.00; % Thigh
 params.dm.L3 = 105.73; % Shin
 
 %% 2. Define a Safe 2D Ellipse Trajectory
-Xc = 0;      % Centered on X
-Yc = -110;   % Positioned vertically within mechanical limits
+Xc = 40;      % Centered on X
+Yc = -145;   % Positioned vertically within mechanical limits
 A = 20;      % Ellipse width semi-axis (mm)
 B = 10;      % Ellipse height semi-axis (mm)
 freq = 0.5;  % 0.5 Hz (1 cycle every 2 seconds)
