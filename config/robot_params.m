@@ -1,21 +1,16 @@
 function params = robot_params()
-    % Establish the robot parameters and caracteristhics
+    % ROBOT_PARAMS Establish the robot parameters and characteristics
     % Outputs:
-    %   params - Struct with the following elements (Hardware - hw, Dimentions - dm, Control - ctrl)
-    %       hw.DXL_IDS              dm.L1       
-    %       hw.DEVICENAME           dm.L2
-    %       hw.PROTOCOL_VERSION     dm.L3
-    %       hw.BAUDRATE
-    %
-
-    % Hardware definitions
-    params.hw.DXL_IDS = [2 3];          % Motors IDs
-    params.hw.DEVICENAME = "COM5";      
-    params.hw.PROTOCOL_VERSION = 1.0;   % Protocol 1.0 or 2.0
+    %   params - Struct with the following elements (Hardware - hw, Dimensions - dm)
+    
+    % Hardware definitions (XM430-W350-R)
+    params.hw.DXL_IDS = [4 3];          % [Thigh Motor ID, Crank Motor ID]
+    params.hw.DEVICENAME = 'COM5';      
+    params.hw.PROTOCOL_VERSION = 2.0;   % X-Series STRICTLY uses 2.0
     params.hw.BAUDRATE = 1000000;       
-
-    % Dimentions definitions
-    params.dm.L1 = 0.04;
-    params.dm.L2 = 0.10;
-    params.dm.L3 = 0.10;
+    
+    % Dimensions definitions (Strictly in millimeters)
+    params.dm.L1 = 40.00;
+    params.dm.L2 = 100.00; % Thigh
+    params.dm.L3 = 105.73; % Shin
 end

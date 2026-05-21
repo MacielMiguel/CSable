@@ -21,6 +21,14 @@ hw_params.BAUDRATE = 1000000;           % Default for X-Series is usually 100000
 hw_params.PROTOCOL_VERSION = 2.0;       % X-Series uses Protocol 2.0
 hw_params.DXL_IDS = [4, 3];             % [Thigh Motor ID, Crank Motor ID]
 
+% HARDWARE OFFSETS [radians]
+% Offset = Physical Motor Angle - Mathematical Model Angle
+% From calibration: Motor 'a' (ID 3) has a +143 degree offset.
+offset_theta2 = deg2rad(0);   % Update this once you calibrate theta2
+offset_a      = deg2rad(-35); % The 35 deg difference you discovered
+
+hw_params.OFFSETS = [offset_theta2, offset_a];
+
 %% 3. Define the Safe 2D Ellipse Trajectory
 Xc = 40;     % Shifted forward
 Yc = -145;   % Shifted downward

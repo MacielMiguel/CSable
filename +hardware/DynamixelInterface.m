@@ -8,6 +8,7 @@ classdef DynamixelInterface < handle
         MotorIDs
         BaudRate
         DeviceName
+        Offsets
     end
     
     properties (Constant)
@@ -32,6 +33,13 @@ classdef DynamixelInterface < handle
             obj.DeviceName = hw_params.DEVICENAME;
             obj.ProtocolVersion = hw_params.PROTOCOL_VERSION;
             obj.BaudRate = hw_params.BAUDRATE;
+
+            % Initialize Offsets (Default to 0 if not provided)
+            if isfield(hw_params, 'OFFSETS')
+                obj.Offsets = hw_params.OFFSETS;
+            else
+                obj.Offsets = zeros(1, length(obj.MotorIDs));
+            end
         end
         
         function init(obj)
@@ -74,30 +82,39 @@ classdef DynamixelInterface < handle
         end
         
         function pos_rad = readPosition(obj, motor_id)
-            % READPOSITION Reads hardware steps and returns purely Radians
+            % READPOSITION Reads hardware steps, applies offset, and returns pure Model Radians
             
-            % Read 4-byte position from hardware
-            dxl_val = read4ByteTxRx(obj.PortNum, obj.ProtocolVersion, motor_id, obj.ADDR_PRESENT_POSITION);
+            % Read 4-byte position from hardware and FORCE cast to double
+            dxl_val = double(read4ByteTxRx(obj.PortNum, obj.ProtocolVersion, motor_id, obj.ADDR_PRESENT_POSITION));
             
-            % Convert hardware steps back to radians using your utility
-            pos_rad = utils.dxl2rad(dxl_val);
+            % Find which index this motor corresponds to
+            idx = find(obj.MotorIDs == motor_id, 1);
+            
+            % Convert hardware steps to radians, then SUBTRACT the hardware offset
+            raw_hardware_rad = utils.dxl2rad(dxl_val);
+            pos_rad = raw_hardware_rad - obj.Offsets(idx);
         end
         
         function writePosition(obj, motor_ids, pos_rads)
-            % WRITEPOSITION Accepts purely Radians, converts to steps, and sends to motors.
-            % Can accept a single ID and angle, or an array of IDs and angles.
+            % WRITEPOSITION Accepts pure Model Radians, applies offset, and sends to motors.
             
             for i = 1:length(motor_ids)
                 id = motor_ids(i);
-                rad = pos_rads(i);
+                idx = find(obj.MotorIDs == id, 1);
                 
-                % Safety Check: Do not send NaNs to the hardware (prevents violent crashes)
-                if isnan(rad)
+                % The mathematical target angle
+                model_rad = pos_rads(i);
+                
+                % Safety Check
+                if isnan(model_rad)
                     continue; 
                 end
                 
+                % ADD the hardware offset to match the physical mounting
+                hardware_target_rad = model_rad + obj.Offsets(idx);
+                
                 % Convert Radians to hardware steps using your utility
-                dxl_val = utils.rad2dxl(rad);
+                dxl_val = utils.rad2dxl(hardware_target_rad);
                 
                 % Write the 4-byte goal position to the hardware
                 write4ByteTxRx(obj.PortNum, obj.ProtocolVersion, id, obj.ADDR_GOAL_POSITION, dxl_val);
