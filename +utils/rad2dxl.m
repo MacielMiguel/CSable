@@ -1,10 +1,14 @@
 function dxl_val = rad2dxl(rad)
-    % RAD2DXL Converts radians to the Dynamixel XM430 position value.
-    % The X-series motors have a resolution of 4096 steps.
+    % RAD2DXL Converts absolute radians [0, 2*pi] to Dynamixel ticks [0, 4095]
     
-    steps_per_revolution = 4096;
-    center_offset = 2048;
+    % 1. Normalize angle to strictly [0, 2*pi] range to avoid wrapping
+    rad = mod(rad, 2*pi);
     
-    % Convert radians to steps and round to nearest integer
-    dxl_val = round(rad * (steps_per_revolution / (2*pi)) + center_offset); 
+    steps_per_rev = 4096;
+    
+    % 2. Pure absolute mapping (No center offset)
+    raw_val = round(rad * (steps_per_rev / (2*pi))); 
+    
+    % 3. Hardware safety clamp
+    dxl_val = max(min(raw_val, 4095), 0);
 end

@@ -13,8 +13,8 @@ function q = inverse_kinematics(pos, params)
     % LINK LENGTHS (Must match the FK exactly)
     % =========================================================
     AD = 50; 
-    AB = 23; 
-    BC = 32; 
+    AB = 20.10; 
+    BC = 29.49; 
     CD = 28.07; 
     DE = 27.94; 
     CE = 38.18; 
@@ -32,7 +32,7 @@ function q = inverse_kinematics(pos, params)
     % invert the sign here.
     % =========================================================
     branch_knee = -1; % Controls the knee bend (Mammalian/Dog vs Spider)
-    branch_E    = 1;  % Controls if the pull-rod EF goes above or below
+    branch_E    = -1;  % Controls if the pull-rod EF goes above or below
     branch_crank = -1; % Controls if the crank AB bends upwards or downwards
     
     % =========================================================
