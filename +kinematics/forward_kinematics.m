@@ -33,8 +33,9 @@ function pos = forward_kinematics(q, params)
     % =========================================================
     % 1. SOLVING THE SUPERIOR LOOP (4-Bar Mechanism A-B-C-D)
     % =========================================================
-    B_x = AD + AB * cos(a);
-    B_y = AB * sin(a);
+    a_geo = a + cfg.a_offset;          % sua leitura (de +Y) -> ângulo geométrico (de +X)
+    B_x = AD + AB * cos(a_geo);
+    B_y = AB * sin(a_geo);
     
     d_DB_sq = B_x^2 + B_y^2;
     d_DB = sqrt(d_DB_sq);
@@ -60,36 +61,40 @@ function pos = forward_kinematics(q, params)
     E_y = DE * sin(phi_DE);
     
     % =========================================================
-    % 3. SOLVING THE INFERIOR LOOP (Knee Quadrilateral)
+    % 3. SOLVING THE INFERIOR LOOP (Knee Quadrilateral D-E-F-G)
+    %    F = intersection of circle(E, EF) and circle(G, FG)
     % =========================================================
     thigh_angle = theta2 + pi/2; 
-    
     G_x = DG * cos(thigh_angle);
     G_y = DG * sin(thigh_angle);
     
-    d_EG_sq = (E_x - G_x)^2 + (E_y - G_y)^2;
-    d_EG = sqrt(d_EG_sq);
+    d_EG = hypot(E_x - G_x, E_y - G_y);
     
-    cos_DGE = (DG^2 + d_EG_sq - DE^2) / (2 * DG * d_EG);
-    ang_DGE = acos(clamp(cos_DGE));
-    
-    cos_EGF = (d_EG_sq + FG^2 - EF^2) / (2 * d_EG * FG);
-    if abs(cos_EGF) > 1
+    % Reachability lock for the lower loop
+    if d_EG > (EF + FG) || d_EG < abs(EF - FG)
         pos = [NaN; NaN; NaN]; return;
     end
-    ang_EGF = acos(cos_EGF);
     
-    % APPLYING E-BRANCH
-    relative_knee_angle = ang_DGE + (branch_E * ang_EGF);
+    % Circle-circle intersection (base point along E->G, then perpendicular)
+    a_len = (EF^2 - FG^2 + d_EG^2) / (2 * d_EG);
+    h_off = sqrt(max(EF^2 - a_len^2, 0));
+    ux = (G_x - E_x) / d_EG;  uy = (G_y - E_y) / d_EG;
+    Mx = E_x + a_len * ux;    My = E_y + a_len * uy;
+    
+    % branch_E selects which side F lands on. Use -1 to match the IK exactly.
+    F_x = Mx - branch_E * h_off * uy;
+    F_y = My + branch_E * h_off * ux;
     
     % =========================================================
     % 4. FINAL CARTESIAN MAPPING
+    %    Shin GH is collinear with AND opposite to the knee crank FG
     % =========================================================
-    % APPLYING KNEE BRANCH
-    shin_angle = thigh_angle + (branch_knee * relative_knee_angle); 
+    shin_dx = G_x - F_x;
+    shin_dy = G_y - F_y;
+    nrm = hypot(shin_dx, shin_dy);
     
-    x = G_x + GH * cos(shin_angle);
-    y = G_y + GH * sin(shin_angle);
+    x = G_x + GH * shin_dx / nrm;
+    y = G_y + GH * shin_dy / nrm;
     z = 0;
     
     pos = [x; y; z];

@@ -124,7 +124,7 @@ function q = inverse_kinematics(pos, params)
     lambda = acos(cos_lambda);
     
     % Solution for the SECOND MOTOR (a)
-    a = phi_AC + (branch_crank * lambda);
+    a = phi_AC + (branch_crank * lambda) - cfg.a_offset;
     
     % Output array
     q = [theta2; a];
