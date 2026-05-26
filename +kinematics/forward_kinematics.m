@@ -5,6 +5,7 @@ function pos = forward_kinematics(q, params)
     % Unpacking state data
     theta2 = q(1); % Angle of the Thigh
     a = q(2);      % Angle of the Crank AB
+    a_offset = deg2rad(90); % Offset to stablish the zero position of the crank as vertical (pointing upwards)
     
     % =========================================================
     % LINK LENGTHS 
@@ -28,12 +29,12 @@ function pos = forward_kinematics(q, params)
     % =========================================================
     branch_knee  = -1; 
     branch_E     = -1;  
-    branch_crank = -1; 
+    branch_crank = 1; 
     
     % =========================================================
     % 1. SOLVING THE SUPERIOR LOOP (4-Bar Mechanism A-B-C-D)
     % =========================================================
-    a_geo = a + cfg.a_offset;          % sua leitura (de +Y) -> ângulo geométrico (de +X)
+    a_geo = a + a_offset;          % sua leitura (de +Y) -> ângulo geométrico (de +X)
     B_x = AD + AB * cos(a_geo);
     B_y = AB * sin(a_geo);
     

@@ -13,7 +13,7 @@ TARGET_LEG = 'LEFT';
 
 %% 1. Setup Kinematics Parameters & Dimensions
 Ts = 0.01;          % Sample time (100 Hz)
-T_end = 4;          % Execution duration (seconds)
+T_end = 8;          % Execution duration (seconds)
 t = 0:Ts:T_end;     % Time vector
 
 % Robot Kinematics Parameters (Strictly in millimeters)
@@ -52,11 +52,11 @@ end
 
 %% 3. Define the Safe 2D Cycloid Trajectory
 % Matches the bounding box of the previous ellipse (Width = 40mm, Height = 30mm)
-Xc = 40;     % Shifted forward
-Yc = -145;   % Shifted downward
-A = 20;      % Half-width (Total Stride = 40mm)
-B = 15;      % Half-height (Total Step clearance = 30mm)
-freq = 0.5;  % 0.5 Hz (1 cycle every 2 seconds)
+Xc = 35;     % Shifted forward
+Yc = -160;   % Shifted downward
+A = 30;      % Half-width (Total Stride = 40mm)
+B = 20;      % Half-height (Total Step clearance = 30mm)
+freq = 0.2;  % 0.5 Hz (1 cycle every 2 seconds)
 
 T_cycle = 1 / freq;
 t_c = mod(t, T_cycle); % Time within the current cycle

@@ -8,11 +8,12 @@ function q = inverse_kinematics(pos, params)
     
     x = pos(1);
     y = pos(2);
+    a_offset = deg2rad(90); % Must match the FK offset for the crank angle
     
     % =========================================================
     % LINK LENGTHS (Must match the FK exactly)
     % =========================================================
-    AD = 50; 
+    AD = 41; 
     AB = 20.10; 
     BC = 29.49; 
     CD = 28.07; 
@@ -33,7 +34,7 @@ function q = inverse_kinematics(pos, params)
     % =========================================================
     branch_knee = -1; % Controls the knee bend (Mammalian/Dog vs Spider)
     branch_E    = -1;  % Controls if the pull-rod EF goes above or below
-    branch_crank = -1; % Controls if the crank AB bends upwards or downwards
+    branch_crank = 1; % Controls if the crank AB bends upwards or downwards
     
     % =========================================================
     % STEP 1: Simple IK of the Main Leg (Find thigh and knee G)
@@ -124,7 +125,7 @@ function q = inverse_kinematics(pos, params)
     lambda = acos(cos_lambda);
     
     % Solution for the SECOND MOTOR (a)
-    a = phi_AC + (branch_crank * lambda) - cfg.a_offset;
+    a = phi_AC + (branch_crank * lambda) - a_offset;
     
     % Output array
     q = [theta2; a];
