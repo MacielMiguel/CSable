@@ -18,7 +18,7 @@ classdef OpenLoopControl < core.AbstractController
             
             % SAFETY: Set a hard speed limit. 
             % e.g., Allow a max of 60 degrees per second.
-            max_speed_rad_per_sec = 60 * (pi / 180); 
+            max_speed_rad_per_sec = 240 * (pi / 180); 
             obj.MaxDeltaAngle = max_speed_rad_per_sec * Ts; 
         end
         

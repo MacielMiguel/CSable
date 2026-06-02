@@ -9,7 +9,7 @@ clear; clc; close all;
 %% =========================================================
 % Choose which leg to control. 
 % Options: 'RIGHT' or 'LEFT'
-TARGET_LEG = 'LEFT'; 
+TARGET_LEG = 'RIGHT'; 
 
 %% 1. Setup Kinematics Parameters & Dimensions
 Ts = 0.01;          % Sample time (100 Hz)
@@ -30,11 +30,11 @@ hw_params.PROTOCOL_VERSION = 2.0;       % X-Series MUST use Protocol 2.0
 switch TARGET_LEG
     case 'RIGHT'
         disp('Configuring hardware for RIGHT leg...');
-        hw_params.DXL_IDS = [4, 3];     % [Thigh Motor ID, Crank Motor ID]
+        hw_params.DXL_IDS=  [1, 2];     % [Thigh Motor ID, Crank Motor ID]
         hw_params.DIRECTIONS = [1, 1];  % Standard rotation
         
         offset_theta2 = deg2rad(0);   
-        offset_a      = deg2rad(143); 
+        offset_a      = deg2rad(0); 
         hw_params.OFFSETS = [offset_theta2, offset_a];
         
     case 'LEFT'
@@ -52,11 +52,11 @@ end
 
 %% 3. Define the Safe 2D Cycloid Trajectory
 % Matches the bounding box of the previous ellipse (Width = 40mm, Height = 30mm)
-Xc = 35;     % Shifted forward
+Xc = 5;     % Shifted forward
 Yc = -160;   % Shifted downward
-A = 30;      % Half-width (Total Stride = 40mm)
+A = 50;      % Half-width (Total Stride = 40mm)
 B = 20;      % Half-height (Total Step clearance = 30mm)
-freq = 0.2;  % 0.5 Hz (1 cycle every 2 seconds)
+freq = 1;  % 0.5 Hz (1 cycle every 2 seconds)
 
 T_cycle = 1 / freq;
 t_c = mod(t, T_cycle); % Time within the current cycle

@@ -42,8 +42,8 @@ switch TARGET_LEG
         hw_params.DXL_IDS = [4, 3];     % UPDATE THESE IDs TO MATCH YOUR LEFT LEG MOTORS
         hw_params.DIRECTIONS = [-1, -1]; % Inverted rotation for symmetry
         
-        offset_theta2 = deg2rad(360); 
-        offset_a      = deg2rad(324); 
+        offset_theta2 = deg2rad(0); % 360
+        offset_a      = deg2rad(-36); % 324
         hw_params.OFFSETS = [offset_theta2, offset_a];
         
     otherwise
