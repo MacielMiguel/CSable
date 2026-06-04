@@ -4,34 +4,32 @@
 
 clear; clc; close all;
 
-%% =========================================================
-%% 0. USER CONFIGURATION
-%% =========================================================
+%% USER CONFIGURATION
 % Choose which leg to control. 
 % Options: 'RIGHT' or 'LEFT'
 TARGET_LEG = 'RIGHT'; 
 
-%% 1. Setup Kinematics Parameters & Dimensions
-Ts = 0.01;          % Sample time (100 Hz)
-T_end = 8;          % Execution duration (seconds)
-t = 0:Ts:T_end;     % Time vector
+%% Setup Kinematics Parameters & Dimensions
+Ts = 0.01;                                      % Sample time (100 Hz)
+T_end = 8;                                      % Execution duration (seconds)
+t = 0:Ts:T_end;                                 % Time vector
 
 % Robot Kinematics Parameters (Strictly in millimeters)
 params = struct();
-params.dm.L2 = 100.00; % Thigh
-params.dm.L3 = 105.73; % Shin
+params.dm.L2 = 100.00;                          % Thigh
+params.dm.L3 = 105.73;                          % Shin
 
-%% 2. Setup Hardware Parameters based on Target Leg
+%% Setup Hardware Parameters based on Target Leg
 hw_params = struct();
-hw_params.DEVICENAME = 'COM5';          % Check your COM port
-hw_params.BAUDRATE = 1000000;           % Default for X-Series
-hw_params.PROTOCOL_VERSION = 2.0;       % X-Series MUST use Protocol 2.0
+hw_params.DEVICENAME = 'COM5';                  % Check your COM port
+hw_params.BAUDRATE = 1000000;                   % Default for X-Series
+hw_params.PROTOCOL_VERSION = 2.0;               % X-Series MUST use Protocol 2.0
 
 switch TARGET_LEG
     case 'RIGHT'
         disp('Configuring hardware for RIGHT leg...');
-        hw_params.DXL_IDS=  [1, 2];     % [Thigh Motor ID, Crank Motor ID]
-        hw_params.DIRECTIONS = [1, 1];  % Standard rotation
+        hw_params.DXL_IDS=  [1, 2];             % [Thigh Motor ID, Crank Motor ID]
+        hw_params.DIRECTIONS = [1, 1];          % Standard rotation
         
         offset_theta2 = deg2rad(0);   
         offset_a      = deg2rad(0); 
@@ -39,27 +37,27 @@ switch TARGET_LEG
         
     case 'LEFT'
         disp('Configuring hardware for LEFT leg...');
-        hw_params.DXL_IDS = [4, 3];     % UPDATE THESE IDs TO MATCH YOUR LEFT LEG MOTORS
-        hw_params.DIRECTIONS = [-1, -1]; % Inverted rotation for symmetry
+        hw_params.DXL_IDS = [4, 3];     
+        hw_params.DIRECTIONS = [-1, -1];        % Inverted rotation for symmetry
         
-        offset_theta2 = deg2rad(360); 
-        offset_a      = deg2rad(324); 
+        offset_theta2 = deg2rad(0); 
+        offset_a      = deg2rad(-36); 
         hw_params.OFFSETS = [offset_theta2, offset_a];
         
     otherwise
         error('Invalid TARGET_LEG. Please select ''RIGHT'' or ''LEFT''.');
 end
 
-%% 3. Define the Safe 2D Cycloid Trajectory
+%% Define the Safe 2D Cycloid Trajectory
 % Matches the bounding box of the previous ellipse (Width = 40mm, Height = 30mm)
-Xc = 5;     % Shifted forward
-Yc = -160;   % Shifted downward
-A = 50;      % Half-width (Total Stride = 40mm)
-B = 20;      % Half-height (Total Step clearance = 30mm)
-freq = 1;  % 0.5 Hz (1 cycle every 2 seconds)
+Xc = 5;    
+Yc = -160;   
+A = 50;      
+B = 20;      
+freq = 1;                                       % 1 Hz (1 cycle every 1 seconds)
 
 T_cycle = 1 / freq;
-t_c = mod(t, T_cycle); % Time within the current cycle
+t_c = mod(t, T_cycle);                         
 
 % Preallocate reference arrays
 ref_x = zeros(size(t));
@@ -69,19 +67,17 @@ ref_y = zeros(size(t));
 swing_mask = t_c < (T_cycle / 2);
 stance_mask = ~swing_mask;
 
-% --- SWING PHASE (Cycloidal Curve in the Air) ---
-% Normalized time for swing phase (0 to 1)
+% SWING PHASE (Cycloidal Curve in the Air)
 tau_swing = t_c(swing_mask) / (T_cycle / 2); 
 ref_x(swing_mask) = (Xc - A) + (2*A / (2*pi)) * (2*pi*tau_swing - sin(2*pi*tau_swing));
 ref_y(swing_mask) = (Yc - B) + B * (1 - cos(2*pi*tau_swing));
 
-% --- STANCE PHASE (Linear Drag on the Ground) ---
-% Normalized time for stance phase (0 to 1)
+% STANCE PHASE (Linear Drag on the Ground) 
 tau_stance = (t_c(stance_mask) - (T_cycle / 2)) / (T_cycle / 2); 
 ref_x(stance_mask) = (Xc + A) - (2*A * tau_stance);
-ref_y(stance_mask) = (Yc - B); % Flat on the ground
+ref_y(stance_mask) = (Yc - B);
 
-%% 3.5 Workspace and Trajectory Pre-Visualization
+%% Workspace and Trajectory Pre-Visualization
 disp('Calculating Workspace for safety verification...');
 % Uses a resolution of 60 (3600 points) for a good balance of speed and detail
 [~, ~] = kinematics.calc_workspace(params, 60); 
@@ -96,10 +92,10 @@ hold on;
 plot(ref_x, ref_y, 'k--', 'LineWidth', 2, 'DisplayName', 'Target Path');
 plot(ref_x(1), ref_y(1), 'go', 'MarkerSize', 8, 'MarkerFaceColor', 'g', 'DisplayName', 'Start Point');
 legend('Location', 'best');
-drawnow; % Force MATLAB to render the window before moving the robot
+drawnow; 
 
-%% 4. Initialize Subsystems
-% 4a. Initialize Controller & Warm Start Check
+%% Initialize Subsystems
+% Initialize Controller & Warm Start Check
 controller = control.OpenLoopControl(Ts, params);
 
 init_ref = [ref_x(1); ref_y(1)];
@@ -110,7 +106,7 @@ if any(isnan(init_q))
 end
 controller.PreviousAction = init_q;
 
-% 4b. Initialize Hardware
+% Initialize Hardware
 disp('Initializing hardware connection...');
 hw_interface = hardware.DynamixelInterface(hw_params);
 hw_interface.init();
@@ -118,9 +114,9 @@ hw_interface.init();
 % Move to the starting position slowly before the fast trajectory begins
 disp('Moving to start position. Please stand clear...');
 hw_interface.writePosition(hw_params.DXL_IDS, init_q);
-pause(2.0); % Give the motors 2 seconds to reach the start point safely
+pause(2.0);                                 % Give the motors 2 seconds to reach the start point safely
 
-%% 5. Preallocate Logging Arrays
+%% Preallocate Logging Arrays
 N = length(t);
 action_log = zeros(2, N);
 actual_pos_log = zeros(2, N); 
@@ -128,21 +124,21 @@ ref_pos_log = [ref_x; ref_y];
 
 disp(['Starting trajectory execution for ' TARGET_LEG ' leg...']);
 
-%% 6. REAL-TIME HARDWARE CONTROL LOOP
+%% REAL-TIME HARDWARE CONTROL LOOP
 for i = 1:N
     % Mark the exact start time of this loop iteration
     loop_start = tic; 
     
-    % 1. Get current reference
+    % Get current reference
     ref = ref_pos_log(:, i);
     
-    % 2. Compute Control Action (IK + Limiter)
+    % Compute Control Action (IK + Limiter)
     action = controller.computeAction([], ref);
     
-    % 3. Send to Hardware!
+    % Send to Hardware!
     hw_interface.writePosition(hw_params.DXL_IDS, action);
     
-    % 4. Read Actual Hardware Position (for plotting errors)
+    % Read Actual Hardware Position (for plotting errors)
     act_theta2 = hw_interface.readPosition(hw_params.DXL_IDS(1));
     act_a      = hw_interface.readPosition(hw_params.DXL_IDS(2));
     act_angles = [act_theta2; act_a];
@@ -151,11 +147,11 @@ for i = 1:N
     act_pos_3d = kinematics.forward_kinematics(act_angles, params);
     actual_pos = act_pos_3d(1:2);
     
-    % 5. Log Data
+    % Log Data
     action_log(:, i) = action;
     actual_pos_log(:, i) = actual_pos;
     
-    % 6. Real-time pacing constraint
+    % Real-time pacing constraint
     elapsed_time = toc(loop_start);
     if elapsed_time < Ts
         pause(Ts - elapsed_time);
@@ -164,10 +160,10 @@ end
 
 disp('Trajectory complete. Cleaning up hardware...');
 
-%% 7. Safe Cleanup
+%% Safe Cleanup
 hw_interface.cleanup();
 
-%% 8. Plot Final Hardware Tracking Errors
+%% Plot Final Hardware Tracking Errors
 error_x = ref_pos_log(1, :) - actual_pos_log(1, :);
 error_y = ref_pos_log(2, :) - actual_pos_log(2, :);
 

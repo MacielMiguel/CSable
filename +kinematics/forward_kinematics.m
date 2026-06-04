@@ -3,38 +3,32 @@ function pos = forward_kinematics(q, params)
     % using a pure analytical geometric approach, synchronized with IK branches.
     
     % Unpacking state data
-    theta2 = q(1); % Angle of the Thigh
-    a = q(2);      % Angle of the Crank AB
-    a_offset = deg2rad(90); % Offset to stablish the zero position of the crank as vertical (pointing upwards)
-    
-    % =========================================================
+    theta2 = q(1);              % Angle of the Thigh
+    a = q(2);                   % Angle of the Crank AB
+    a_offset = deg2rad(90);     
+
     % LINK LENGTHS 
-    % =========================================================
-    AD = 41; % Distance between motors
-    AB = 20.10; % Crank
-    BC = 29.49; % Coupler
-    CD = 28.07; % Rocker side 1
-    DE = 27.94; % Rocker side 2
-    CE = 38.18; % Rocker side 3
-    EF = 100.00; % Pull-rod
-    FG = 27.27; % Knee crank
+    AD = 41; 
+    AB = 20.10; 
+    BC = 29.49; 
+    CD = 28.07; 
+    DE = 27.94; 
+    CE = 38.18; 
+    EF = 100.00; 
+    FG = 27.27; 
     
-    DG = params.dm.L2; % Thigh
-    GH = params.dm.L3; % Shin
+    DG = params.dm.L2; 
+    GH = params.dm.L3; 
     
     clamp = @(v) max(min(v, 1), -1);
     
-    % =========================================================
     % ASSEMBLY BRANCH CONFIGURATION (MUST MATCH IK EXACTLY)
-    % =========================================================
     branch_knee  = -1; 
     branch_E     = -1;  
     branch_crank = 1; 
     
-    % =========================================================
-    % 1. SOLVING THE SUPERIOR LOOP (4-Bar Mechanism A-B-C-D)
-    % =========================================================
-    a_geo = a + a_offset;          % sua leitura (de +Y) -> ângulo geométrico (de +X)
+    % SOLVING THE SUPERIOR LOOP (4-Bar Mechanism A-B-C-D)
+    a_geo = a + a_offset;        
     B_x = AD + AB * cos(a_geo);
     B_y = AB * sin(a_geo);
     
@@ -51,9 +45,7 @@ function pos = forward_kinematics(q, params)
     % APPLYING CRANK BRANCH
     phi_CD = phi_DB + (branch_crank * ang_CDB); 
     
-    % =========================================================
-    % 2. SOLVING THE RIGID TRIANGLE (C-D-E)
-    % =========================================================
+    % SOLVING THE RIGID TRIANGLE (C-D-E)
     cos_CDE = (CD^2 + DE^2 - CE^2) / (2 * CD * DE);
     ang_CDE = acos(clamp(cos_CDE)); 
     
@@ -61,10 +53,7 @@ function pos = forward_kinematics(q, params)
     E_x = DE * cos(phi_DE);
     E_y = DE * sin(phi_DE);
     
-    % =========================================================
-    % 3. SOLVING THE INFERIOR LOOP (Knee Quadrilateral D-E-F-G)
-    %    F = intersection of circle(E, EF) and circle(G, FG)
-    % =========================================================
+    % SOLVING THE INFERIOR LOOP (Knee Quadrilateral D-E-F-G)
     thigh_angle = theta2 + pi/2; 
     G_x = DG * cos(thigh_angle);
     G_y = DG * sin(thigh_angle);
@@ -86,10 +75,7 @@ function pos = forward_kinematics(q, params)
     F_x = Mx - branch_E * h_off * uy;
     F_y = My + branch_E * h_off * ux;
     
-    % =========================================================
-    % 4. FINAL CARTESIAN MAPPING
-    %    Shin GH is collinear with AND opposite to the knee crank FG
-    % =========================================================
+    % FINAL CARTESIAN MAPPING
     shin_dx = G_x - F_x;
     shin_dy = G_y - F_y;
     nrm = hypot(shin_dx, shin_dy);

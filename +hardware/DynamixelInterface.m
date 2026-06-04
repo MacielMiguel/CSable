@@ -21,22 +21,22 @@ classdef DynamixelInterface < handle
     end
 
     properties (Constant)
-        % ---- XM430-W350 Control Table (X-Series, Protocol 2.0) ----
-        ADDR_TORQUE_ENABLE    = 64;   % 1 Byte
-        ADDR_PROFILE_VELOCITY = 112;  % 4 Bytes
-        ADDR_GOAL_POSITION    = 116;  % 4 Bytes
-        ADDR_PRESENT_POSITION = 132;  % 4 Bytes
+        % XM430-W350 Control Table (X-Series, Protocol 2.0) 
+        ADDR_TORQUE_ENABLE    = 64;   
+        ADDR_PROFILE_VELOCITY = 112;  
+        ADDR_GOAL_POSITION    = 116;  
+        ADDR_PRESENT_POSITION = 132; 
 
-        % ---- AX-12 Control Table (Protocol 1.0) ----
-        AX_ADDR_CW_COMPLIANCE_MARGIN  = 26;  % 1 Byte
-        AX_ADDR_CCW_COMPLIANCE_MARGIN = 27;  % 1 Byte
-        AX_ADDR_CW_COMPLIANCE_SLOPE   = 28;  % 1 Byte
-        AX_ADDR_CCW_COMPLIANCE_SLOPE  = 29;  % 1 Byte
-        AX_ADDR_TORQUE_ENABLE  = 24;  % 1 Byte
-        AX_ADDR_MOVING_SPEED   = 32;  % 2 Bytes
-        AX_ADDR_GOAL_POSITION  = 30;  % 2 Bytes
-        AX_ADDR_PRESENT_POS    = 36;  % 2 Bytes
-        AX_ADDR_TORQUE_LIMIT   = 34;  % 2 Bytes (max torque allowed, 0..1023)
+        % AX-12 Control Table (Protocol 1.0) 
+        AX_ADDR_CW_COMPLIANCE_MARGIN  = 26;  
+        AX_ADDR_CCW_COMPLIANCE_MARGIN = 27;  
+        AX_ADDR_CW_COMPLIANCE_SLOPE   = 28; 
+        AX_ADDR_CCW_COMPLIANCE_SLOPE  = 29; 
+        AX_ADDR_TORQUE_ENABLE  = 24;  
+        AX_ADDR_MOVING_SPEED   = 32; 
+        AX_ADDR_GOAL_POSITION  = 30; 
+        AX_ADDR_PRESENT_POS    = 36; 
+        AX_ADDR_TORQUE_LIMIT   = 34;  
 
         TORQUE_ENABLE  = 1;
         TORQUE_DISABLE = 0;
@@ -44,7 +44,7 @@ classdef DynamixelInterface < handle
         % AX-12 specifics: 1024 steps over 300 degrees
         AX_RESOLUTION = 1024;
         AX_RANGE_DEG  = 300;
-        AX_CENTER_VAL = 512;   % 150 deg == center == raw value 512
+        AX_CENTER_VAL = 512;                    % 150 deg == center == raw value 512
 
         LIB_NAME = 'dxl_x64_c';
     end
@@ -89,16 +89,13 @@ classdef DynamixelInterface < handle
         function init(obj)
             % Initialize connection and torque for BOTH protocols.
 
-            % 1. Load the Dynamixel SDK library if not already loaded
+            % Load the Dynamixel SDK library if not already loaded
             if ~libisloaded(obj.LIB_NAME)
                 [~, ~] = loadlibrary(obj.LIB_NAME, 'dynamixel_sdk.h', ...
                     'addheader', 'port_handler.h', 'addheader', 'packet_handler.h');
             end
 
-            % 2. Initialize Port and the packet handlers.
-            % NOTE: packetHandler() initializes the internal handlers for ALL
-            % protocol versions; we then simply pass the right version number
-            % (1.0 or 2.0) on each Tx/Rx call. A single open port serves both.
+            % Initialize Port and the packet handlers
             obj.PortNum = portHandler(obj.DeviceName);
             packetHandler();
 
@@ -114,8 +111,8 @@ classdef DynamixelInterface < handle
                 error('Failed to change the baudrate!');
             end
 
-            % 3a. Enable torque + profile velocity for X-Series leg motors (Proto 2.0)
-            safe_speed_val = 0;   % 0 = max speed in X-Series profile velocity
+            % Enable torque + profile velocity for X-Series leg motors (Proto 2.0)
+            safe_speed_val = 0;                     
             for id = obj.MotorIDs
                 write1ByteTxRx(obj.PortNum, obj.ProtocolVersion, id, ...
                     obj.ADDR_TORQUE_ENABLE, obj.TORQUE_ENABLE);
@@ -124,18 +121,11 @@ classdef DynamixelInterface < handle
             end
             fprintf('X-Series leg motors initialized and torque enabled.\n');
 
-            % 3b. Configure AX-12 Z-axis motors (Proto 1.0) to hold firmly.
-            % The AX-12 yields under load with default settings because of its
-            % "compliance" parameters (dead-zone around the goal) and a soft
-            % default torque limit. We tighten both so the joint resists the
-            % robot's weight instead of drifting.
-            ax_speed_val           = 1023;   % moderate move speed to the goal
-            ax_torque_limit        = 1023;  % max torque (0..1023). 1023 = full.
-            ax_compliance_margin   = 0;     % no dead-zone (0..254 steps)
-            ax_compliance_slope    = 32;    % stiff response (0..254, lower = stiffer overall but values below 16 can chatter; 32 is a firm/safe default)
+            ax_speed_val           = 1023;          % moderate move speed to the goal
+            ax_torque_limit        = 1023;          % max torque (0..1023). 1023 = full.
+            ax_compliance_margin   = 0;             % no dead-zone (0..254 steps)
+            ax_compliance_slope    = 32;            % stiff response (0..254, lower = stiffer overall but values below 16 can chatter; 32 is a firm/safe default)
             for id = obj.AXMotorIDs
-                % IMPORTANT: torque must be DISABLED to write some EEPROM/RAM
-                % control values reliably across firmware versions. Enable last.
                 write1ByteTxRx(obj.PortNum, obj.ProtocolVersionAX, id, ...
                     obj.AX_ADDR_TORQUE_ENABLE, obj.TORQUE_DISABLE);
 
@@ -166,13 +156,10 @@ classdef DynamixelInterface < handle
                     ax_compliance_slope, ax_torque_limit);
             end
 
-            % 3c. Set up GroupSyncWrite for X-Series Goal Position (Proto 2.0).
-            % Sends all leg-motor goal positions in ONE serial transaction
-            % instead of one transaction per motor. This is the single biggest
-            % speed win for the control loop.
+            % Set up GroupSyncWrite for X-Series Goal Position (Proto 2.0).
             obj.UseSyncWrite = false;
             try
-                LEN_GOAL_POSITION = 4;  % Goal Position is 4 bytes on X-Series
+                LEN_GOAL_POSITION = 4; 
                 obj.GroupNum = groupSyncWrite(obj.PortNum, obj.ProtocolVersion, ...
                     obj.ADDR_GOAL_POSITION, LEN_GOAL_POSITION);
                 obj.UseSyncWrite = true;
@@ -205,7 +192,7 @@ classdef DynamixelInterface < handle
                 model_rad = all_pos_rads(i);
 
                 if isnan(model_rad)
-                    continue;   % skip unreachable targets, keep last command
+                    continue;                       % skip unreachable targets, keep last command
                 end
 
                 hardware_target_rad = (model_rad * obj.Directions(idx)) + obj.Offsets(idx);
@@ -321,7 +308,7 @@ classdef DynamixelInterface < handle
     methods (Access = private)
         function val = axDeg2Val(obj, deg)
             % Convert an AX-12 angle in degrees (0..300) to a raw step value (0..1023).
-            deg = max(0, min(obj.AX_RANGE_DEG, deg));   % clamp to valid range
+            deg = max(0, min(obj.AX_RANGE_DEG, deg));   
             val = round(deg / obj.AX_RANGE_DEG * (obj.AX_RESOLUTION - 1));
         end
     end

@@ -15,9 +15,7 @@
 
 clear; clc; close all;
 
-%% =========================================================
-%% 0. GAIT / SYNC CONFIGURATION
-%% =========================================================
+%% GAIT / SYNC CONFIGURATION
 % Individual phase offsets per leg (fraction of cycle, 0.0 to 1.0).
 % FR is the reference (0.0). Edit the others to change the gait pattern.
 %
@@ -28,54 +26,54 @@ clear; clc; close all;
 %   Bound          : FL=0.00  RR=0.50  RL=0.50
 %   Pronk (all)    : FL=0.00  RR=0.00  RL=0.00
 %   -------------------------------------------------------
-PHASE_FR = 0.00;   % Front-Right  (reference)
-PHASE_FL = 0.50;   % Front-Left
-PHASE_RR = 0.50;   % Rear-Right
-PHASE_RL = 0.00;   % Rear-Left
+PHASE_FR = 0.00;                                % (reference)
+PHASE_FL = 0.50;   
+PHASE_RR = 0.50;   
+PHASE_RL = 0.00;   
 
 % AX-12 Z-axis holding angles (degrees), one per motor.
 % Order MUST match hw_params.AX_IDS below: [ID 11, ID 12, ID 13, ID 14].
-Z_HOLD_DEG = [152, 152, 150, 148];   % [FL-Z, FR-Z, RL-Z, RR-Z] 148.152
+Z_HOLD_DEG = [152, 152, 150, 148];              % <-- tune these for a stable standing pose
 
 %% 1. Setup Kinematics Parameters & Dimensions
-Ts   = 0.01;   % Sample time (100 Hz)
-freq = 2.0;      % Gait frequency (Hz)
+Ts   = 0.01;                                    % Sample time (100 Hz)
+freq = 2.0;                                     % Gait frequency (Hz)
 
 % Robot Kinematics Parameters (millimeters) — identical for all four legs
 params = struct();
-params.dm.L2 = 100.00;   % Thigh
-params.dm.L3 = 105.73;   % Shin
+params.dm.L2 = 100.00;                          % Thigh
+params.dm.L3 = 105.73;                          % Shin
 
-%% 2. Hardware Parameters (single shared port, all motors)
+%% Hardware Parameters (single shared port, all motors)
 hw_params = struct();
-hw_params.DEVICENAME          = 'COM5';    % <-- check your COM port
+hw_params.DEVICENAME          = 'COM5';         % <-- check your COM port
 hw_params.BAUDRATE            = 1000000;
-hw_params.PROTOCOL_VERSION    = 2.0;       % X-Series leg motors
-hw_params.PROTOCOL_VERSION_AX = 1.0;       % AX-12 Z-axis motors
+hw_params.PROTOCOL_VERSION    = 2.0;           
+hw_params.PROTOCOL_VERSION_AX = 1.0;           
 
-% ---- FRONT-RIGHT leg (X-Series) ----
-FR.DXL_IDS    = [1, 2];          % [Thigh, Crank]
+% FRONT-RIGHT leg (X-Series) 
+FR.DXL_IDS    = [1, 2];                         % [Thigh, Crank]
 FR.DIRECTIONS = [1,  1];
 FR.OFFSETS    = [deg2rad(0), deg2rad(0)];
 
-% ---- FRONT-LEFT leg (X-Series) ----
-FL.DXL_IDS    = [3, 4];          % [Thigh, Crank]
-FL.DIRECTIONS = [-1, -1];        % Inverted for symmetry
+% FRONT-LEFT leg (X-Series)
+FL.DXL_IDS    = [3, 4];          
+FL.DIRECTIONS = [-1, -1];                       % Inverted for symmetry
 FL.OFFSETS    = [deg2rad(0), deg2rad(-17)];
 
-% ---- REAR-RIGHT leg (X-Series) ----
+% REAR-RIGHT leg (X-Series)
 % Same mechanical symmetry as Front-Right.
-RR.DXL_IDS    = [7, 8];          % [Thigh, Crank]
+RR.DXL_IDS    = [7, 8];         
 RR.DIRECTIONS = [1,  1];
 RR.OFFSETS    = [deg2rad(0), deg2rad(0)];
 
-% ---- REAR-LEFT leg (X-Series) ----
+% REAR-LEFT leg (X-Series) 
 % Same mechanical symmetry as Front-Left.
-RL.DXL_IDS    = [5, 6];          % [Thigh, Crank]
+RL.DXL_IDS    = [5, 6];         
 RL.DIRECTIONS = [-1, -1];
 RL.OFFSETS    = [deg2rad(0), deg2rad(0)];
 
-% ---- AX-12 Z-axis motors (all four) ----
+% AX-12 Z-axis motors (all four) 
 % Order matches Z_HOLD_DEG above: [FL, FR, RL, RR]
 hw_params.AX_IDS = [11, 12, 13, 14];
 
@@ -92,11 +90,11 @@ IDS_FL = FL.DXL_IDS;
 IDS_RR = RR.DXL_IDS;
 IDS_RL = RL.DXL_IDS;
 
-%% 3. Define the Cycloid Trajectory (one full gait cycle)
-Xc = 9;     % Center X
-Yc = -150;   % Center Y (standing height)
-A  = 40;     % Half-width
-B  = 20;     % Swing height clearance
+%% Define the Cycloid Trajectory (one full gait cycle)
+Xc = 9;                                     % Center X
+Yc = -150;                                  % Center Y (standing height)
+A  = 40;                                    % Half-width
+B  = 20;                                    % Swing height clearance
 
 T_cycle = 1 / freq;
 t_cycle = 0:Ts:(T_cycle - Ts);
@@ -117,27 +115,17 @@ tau_stance = (t_cycle(stance_mask) - (T_cycle/2)) / (T_cycle/2);
 cyc_x(stance_mask) = (Xc + A) - (2*A * tau_stance);
 cyc_y(stance_mask) = (Yc - B);
 
-% All four legs use the same cycloid shape.
-% Left/right physical symmetry is handled by DIRECTIONS/OFFSETS, not trajectory.
-% Front/rear physical symmetry is assumed identical (same kinematics).
-
 % Standing point
 STAND_X =    0;
 STAND_Y = -150;
 
-%% =========================================================
 %% PHASE OFFSETS (converted to sample shifts)
-%% =========================================================
-% Each leg is indexed independently using its own offset, so any gait
-% pattern can be selected just by editing PHASE_* at the top.
-%   - Diagonal trot keeps one diagonal pair in swing while the other
-%     is in stance, giving two-point support at all times.
 shift_fr = round(Ncyc * PHASE_FR);
 shift_fl = round(Ncyc * PHASE_FL);
 shift_rr = round(Ncyc * PHASE_RR);
 shift_rl = round(Ncyc * PHASE_RL);
 
-%% 3.5 Workspace & Trajectory Pre-Visualization (safety check)
+%% Workspace & Trajectory Pre-Visualization (safety check)
 disp('Calculating workspace for safety verification...');
 [~, ~] = kinematics.calc_workspace(params, 60);
 
@@ -151,7 +139,7 @@ plot(STAND_X, STAND_Y, 'gp', 'MarkerSize', 12, 'MarkerFaceColor', 'g', ...
 legend('Location', 'best');
 drawnow;
 
-%% 3.6 Verify ENTIRE trajectory and standing point inside workspace
+%% Verify ENTIRE trajectory and standing point inside workspace
 disp('Verifying every reference point is reachable...');
 check_x = [cyc_x, STAND_X];
 check_y = [cyc_y, STAND_Y];
@@ -164,7 +152,7 @@ for k = 1:length(check_x)
 end
 disp('All reference points verified inside the workspace.');
 
-%% 4. Initialize Subsystems
+%% Initialize Subsystems
 % One controller per leg (each keeps its own warm-start / limiter state)
 ctrl_fr = control.OpenLoopControl(Ts, params);
 ctrl_fl = control.OpenLoopControl(Ts, params);
@@ -187,24 +175,12 @@ hw_interface.init();
 disp('Holding Z-axis (AX-12) for all four legs...');
 hw_interface.holdZAxis(Z_HOLD_DEG);
 
-%% =========================================================
-%% 4.5 SMOOTH STANDUP — gradual move from a fixed start pose
-%% =========================================================
-% Interpolates from a FIXED, safe starting pose (a tucked/lower foot
-% position) to the standing IK angles using a smooth-step curve
-% (ease-in/ease-out, zero velocity at both ends). This avoids reading
-% from the hardware entirely, and replaces the old abrupt writePosition
-% + pause(2.0) so the robot rises gently on the first run.
-%
-% START_X / START_Y define where the standup BEGINS (in the same Cartesian
-% frame as the standing point). The default is a tucked pose slightly
-% higher (less extended) than standing. Adjust if it doesn't match how the
-% robot physically sits when powered on.
+%% SMOOTH STANDUP — gradual move from a fixed start pose
 START_X = 0;
-START_Y = -160;   % tucked / lifted foot — closer to the body than standing
+START_Y = -160;                             % tucked / lifted foot — closer to the body than standing
 
 % Tune STANDUP_DURATION to control how fast the robot rises.
-STANDUP_DURATION = 3.0;   % seconds
+STANDUP_DURATION = 3.0;                     % seconds
 STANDUP_STEPS    = round(STANDUP_DURATION / Ts);
 
 % Fixed starting joint angles (same for all four legs, via IK).
@@ -242,9 +218,9 @@ end
 disp('Standup complete. Robot is in standing position.');
 pause(0.5);
 
-%% 5. STATE MACHINE / MAIN LOOP
-mode      = 0;    % 0 = STANDING, 1 = WALKING, -1 = QUIT
-phase_idx = 0;    % gait phase counter (advances only while walking)
+%% STATE MACHINE / MAIN LOOP
+mode      = 0;                              % 0 = STANDING, 1 = WALKING, -1 = QUIT
+phase_idx = 0;                              % gait phase counter (advances only while walking)
 
 kfig = makeKeyWindow();
 updateKeyWindow(kfig, mode);
@@ -253,7 +229,7 @@ running = true;
 while running
     loop_start = tic;
 
-    % --- Non-blocking key read ---
+    % Non-blocking key read
     drawnow limitrate;
     cmd = readKey(kfig);
     switch cmd
@@ -276,7 +252,7 @@ while running
         break;
     end
 
-    % --- Compute references for this tick ---
+    % Compute references for this tick
     if mode == 1
         % WALKING: advance phase and index each leg with its own offset
         phase_idx = mod(phase_idx + 1, Ncyc);
@@ -299,13 +275,13 @@ while running
         ref_rl = [STAND_X; STAND_Y];
     end
 
-    % --- IK + limiter per leg ---
+    % IK + limiter per leg 
     act_fr = ctrl_fr.computeAction([], ref_fr);
     act_fl = ctrl_fl.computeAction([], ref_fl);
     act_rr = ctrl_rr.computeAction([], ref_rr);
     act_rl = ctrl_rl.computeAction([], ref_rl);
 
-    % --- Single GroupSyncWrite for ALL eight leg motors ---
+    % Single GroupSyncWrite for ALL eight leg motors
     % Order MUST match hw_params.DXL_IDS:
     %   [FR thigh, FR crank, FL thigh, FL crank,
     %    RR thigh, RR crank, RL thigh, RL crank]
@@ -313,9 +289,7 @@ while running
     all_acts = [act_fr(:); act_fl(:); act_rr(:); act_rl(:)];
     hw_interface.writeAllLegsSync(all_ids, all_acts);
 
-    % NOTE: AX-12 motors are parked once before the loop and hold on their own.
-
-    % --- Real-time pacing ---
+    % Real-time pacing
     elapsed = toc(loop_start);
 
     DEBUG_TIMING = false;
@@ -328,15 +302,13 @@ while running
     end
 end
 
-%% 6. Safe Cleanup
+%% Safe Cleanup
 disp('Shutting down. Cleaning up hardware...');
 hw_interface.cleanup();
 if isvalid(kfig); close(kfig); end
 disp('Done.');
 
-%% =========================================================
-%% Helper functions (identical to bipedal version)
-%% =========================================================
+%% Helper functions for key handling and display
 function f = makeKeyWindow()
     f = figure('Name', 'GAIT KEYS', 'NumberTitle', 'off', ...
                'MenuBar', 'none', 'ToolBar', 'none', ...

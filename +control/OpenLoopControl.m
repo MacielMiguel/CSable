@@ -2,9 +2,9 @@ classdef OpenLoopControl < core.AbstractController
     % OPENLOOPCONTROL Open Loop control implementation
     
     properties
-        Params         % Parameters to use during the execution (e.g., kinematics)
-        PreviousAction % Memory of the last valid commanded angles [rad]
-        MaxDeltaAngle  % Maximum allowed angle change per time step (velocity limit)
+        Params                      % Parameters to use during the execution (e.g., kinematics)
+        PreviousAction              % Memory of the last valid commanded angles [rad]
+        MaxDeltaAngle               % Maximum allowed angle change per time step (velocity limit)
     end
     
     methods
@@ -17,7 +17,7 @@ classdef OpenLoopControl < core.AbstractController
             obj.PreviousAction = [0; 0]; 
             
             % SAFETY: Set a hard speed limit. 
-            % e.g., Allow a max of 60 degrees per second.
+            % e.g., Allow a max of 240 degrees per second.
             max_speed_rad_per_sec = 240 * (pi / 180); 
             obj.MaxDeltaAngle = max_speed_rad_per_sec * Ts; 
         end
@@ -26,18 +26,17 @@ classdef OpenLoopControl < core.AbstractController
             % ref: [X; Z] or [X; Y; Z] target position of the foot in space
             % state: current state (positions and velocities)
             
-            % 1. Calculate Target (IK solver)
+            % Calculate Target (IK solver)
             target_angles_rad = kinematics.inverse_kinematics(ref, obj.Params);
             
-            % 2. SAFETY CHECK: Singularity / Out-of-Bounds
-            % If IK fails to find a solution, it often returns NaN or complex numbers.
+            % SAFETY CHECK: Singularity / Out-of-Bounds
             if any(isnan(target_angles_rad)) || ~isreal(target_angles_rad)
                 warning('OpenLoopControl: IK Solution Invalid (Singularity/Out of Reach). Holding previous position.');
                 action = obj.PreviousAction;
-                return; % Exit early, do not send bad data
+                return; 
             end
             
-            % 3. SAFETY CHECK: Velocity Clamping (Rate Limiting)
+            % SAFETY CHECK: Velocity Clamping (Rate Limiting)
             % Calculate how far the motor wants to move this step.
             delta_angle = target_angles_rad - obj.PreviousAction;
             
@@ -47,7 +46,7 @@ classdef OpenLoopControl < core.AbstractController
             % Calculate the final, safe commanded angle
             action = obj.PreviousAction + delta_angle;
             
-            % 4. Update memory for the next control loop
+            % Update memory for the next control loop
             obj.PreviousAction = action;
         end
     end

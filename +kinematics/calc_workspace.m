@@ -5,12 +5,12 @@ function [X, Y] = calc_workspace(dm_params, num_points)
     %   num_points - Grid resolution (e.g., 50 generates 2500 calculated points)
     
     if nargin < 2
-        num_points = 20; % Default resolution
+        num_points = 20;                % Default resolution
     end
     
-    % Definition of motor limits in radians
-    a_vec = linspace(deg2rad(95), deg2rad(175), num_points); % 95, 150
-    theta2_vec = linspace(deg2rad(90), deg2rad(180), num_points); % 100, 160
+    % Definition of motor limits in radians (Defined by physical constraints)
+    a_vec = linspace(deg2rad(95), deg2rad(175), num_points); 
+    theta2_vec = linspace(deg2rad(90), deg2rad(180), num_points); 
     
     % MEMORY PREALLOCATION FOR EFFICIENCY (O(N^2))
     total_points = num_points * num_points;
