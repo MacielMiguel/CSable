@@ -129,7 +129,7 @@ classdef DynamixelInterface < handle
             % "compliance" parameters (dead-zone around the goal) and a soft
             % default torque limit. We tighten both so the joint resists the
             % robot's weight instead of drifting.
-            ax_speed_val           = 100;   % moderate move speed to the goal
+            ax_speed_val           = 1023;   % moderate move speed to the goal
             ax_torque_limit        = 1023;  % max torque (0..1023). 1023 = full.
             ax_compliance_margin   = 0;     % no dead-zone (0..254 steps)
             ax_compliance_slope    = 32;    % stiff response (0..254, lower = stiffer overall but values below 16 can chatter; 32 is a firm/safe default)
